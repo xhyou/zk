@@ -1,13 +1,11 @@
 package com.xhy.zookeeper;
 
-import com.xhy.constants.ZookeeperConstants;
+import com.xhy.utils.ZKUtils;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
-import org.apache.zookeeper.proto.WatcherEvent;
 
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 
 /**
  * watch的监听只发生在读事件中
@@ -15,12 +13,7 @@ import java.util.concurrent.CountDownLatch;
  */
 public class ZookeeperConn {
     public static void main(String[] args) throws Exception {
-        final CountDownLatch countDownLatch = new CountDownLatch(1);
-        ZooKeeper zookeeper = getZookeeper(buildIpAddress(), 3000, countDownLatch);
-        //等待zk的正常连接
-        waitUntilConnected(zookeeper, countDownLatch);
-        ZooKeeper.States zkState = zookeeper.getState();
-        System.out.println("zk current state:" + zkState);
+        ZooKeeper zookeeper = ZKUtils.getZK();
         //创建EPHEMERAL(临时)节点,随session的断开而销毁
         String path = syncCreateNode(zookeeper, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
         System.out.println(path);
@@ -97,22 +90,19 @@ public class ZookeeperConn {
             byte[] data = zookeeper.getData(path, false, stat);
             return new String(data);
         }
-        Watcher watcher = new Watcher() {
+        zookeeper.getData(path, new Watcher() {
             @Override
             public void process(WatchedEvent event) {
                 System.out.println("节点监听事件event:" + event);
                 //添加重复注册
                 try {
                     zookeeper.getData(path, this, stat);
-                } catch (KeeperException e) {
-                    e.printStackTrace();
-                } catch (InterruptedException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
-        };
-        byte[] data = zookeeper.getData(path, watcher, stat);
-        return new String(data);
+        }, stat);
+        return "data";
     }
 
     /**
@@ -180,118 +170,5 @@ public class ZookeeperConn {
                 }
             }
         }, "zookeeper02".getBytes());
-    }
-
-    /**
-     * 连接zk
-     *
-     * @param address        zk的连接地址
-     * @param sessionTimeOut 超时时间,超过多久zk连接session断开
-     * @param countDownLatch
-     * @return
-     */
-    public static ZooKeeper getZookeeper(String address, int sessionTimeOut, final CountDownLatch countDownLatch) throws Exception {
-        ZooKeeper zooKeeper = new ZooKeeper(address, sessionTimeOut, new Watcher() {
-            @Override
-            public void process(WatchedEvent event) {
-                System.out.println("zk监听:" + event);
-                System.out.println("zk的路径:" + event.getPath());
-                switch (event.getState()) {
-                    case Unknown:
-                        System.out.println("Unknown");
-                        break;
-                    case Disconnected:
-                        System.out.println("Disconnected");
-                        break;
-                    case NoSyncConnected:
-                        System.out.println("NoSyncConnected");
-                        break;
-                    case SyncConnected:
-                        //zk连接同步进行
-                        countDownLatch.countDown();
-                        System.out.println("SyncConnected");
-                        break;
-                    case AuthFailed:
-                        System.out.println("AuthFailed");
-                        break;
-                    case ConnectedReadOnly:
-                        System.out.println("ConnectedReadOnly");
-                        break;
-                    case SaslAuthenticated:
-                        System.out.println("SaslAuthenticated");
-                        break;
-                    case Expired:
-                        System.out.println("Expired");
-                        break;
-                    case Closed:
-                        System.out.println("Closed");
-                        break;
-                }
-                switch (event.getType()) {
-                    case None:
-                        System.out.println("None");
-                        break;
-                    case NodeCreated:
-                        System.out.println("NodeCreated");
-                        break;
-                    case NodeDeleted:
-                        System.out.println("NodeDeleted");
-                        break;
-                    case NodeDataChanged:
-                        System.out.println("NodeDataChanged");
-                        break;
-                    case NodeChildrenChanged:
-                        System.out.println("NodeChildrenChanged");
-                        break;
-                    case DataWatchRemoved:
-                        System.out.println("DataWatchRemoved");
-                        break;
-                    case ChildWatchRemoved:
-                        System.out.println("ChildWatchRemoved");
-                        break;
-                    case PersistentWatchRemoved:
-                        System.out.println("PersistentWatchRemoved");
-                        break;
-                }
-                WatcherEvent wrapper = event.getWrapper();
-                System.out.println("zk Wrapper:" + wrapper);
-            }
-        });
-        return zooKeeper;
-    }
-
-    /**
-     * 检验是否连接上zk
-     *
-     * @param zooKeeper
-     * @param connectedLatch
-     */
-    public static void waitUntilConnected(ZooKeeper zooKeeper, CountDownLatch connectedLatch) {
-        if (ZooKeeper.States.CONNECTING == zooKeeper.getState()) {
-            try {
-                connectedLatch.await();
-            } catch (InterruptedException e) {
-                throw new IllegalStateException(e);
-            }
-        }
-    }
-
-    /**
-     * 构建四台服务器的地址端口
-     * 如：192.168.163.66:2181,192.168.163.67:2181,192.168.163.68:2181,192.168.163.69:2181
-     *
-     * @return
-     */
-    private static String buildIpAddress() {
-        StringBuffer stringBuffer = new StringBuffer();
-        stringBuffer.append(ZookeeperConstants.NODE1_IP_ADDRESS + ZookeeperConstants.COLON + ZookeeperConstants.PORT);
-        stringBuffer.append(ZookeeperConstants.SPLIT);
-        stringBuffer.append(ZookeeperConstants.NODE2_IP_ADDRESS + ZookeeperConstants.COLON + ZookeeperConstants.PORT);
-        stringBuffer.append(ZookeeperConstants.SPLIT);
-        stringBuffer.append(ZookeeperConstants.NODE3_IP_ADDRESS + ZookeeperConstants.COLON + ZookeeperConstants.PORT);
-        stringBuffer.append(ZookeeperConstants.SPLIT);
-        stringBuffer.append(ZookeeperConstants.NODE4_IP_ADDRESS + ZookeeperConstants.COLON + ZookeeperConstants.PORT);
-        System.out.println("zk连接地址:" + stringBuffer.toString());
-        return stringBuffer.toString();
     }
 }

@@ -22,6 +22,11 @@ public class ZookeeperConstants {
     public static final String COLON = ":";
 
     /**
+     * 斜线
+     */
+    public static final String DIAGONAL_LINE = "/";
+
+    /**
      * 服务器1 IP地址
      */
     public static final String NODE1_IP_ADDRESS = "192.168.163.66";
