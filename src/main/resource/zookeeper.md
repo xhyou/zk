@@ -96,3 +96,5 @@ set /ooxx "hello" --设置节点
 
 ![image-20210527171036838](C:\Users\xuehy\AppData\Roaming\Typora\typora-user-images\image-20210527171036838.png)
 
+**分布式锁**
+> 在同一时间只能有一个人获取一把锁.

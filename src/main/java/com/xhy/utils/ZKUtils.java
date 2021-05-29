@@ -50,7 +50,7 @@ public class ZKUtils {
         stringBuffer.append(ZookeeperConstants.SPLIT);
         stringBuffer.append(ZookeeperConstants.NODE4_IP_ADDRESS + ZookeeperConstants.COLON + ZookeeperConstants.PORT);
         stringBuffer.append(ZookeeperConstants.DIAGONAL_LINE);
-        stringBuffer.append("testConfig");
+        stringBuffer.append("testLock");
         System.out.println("zk连接地址:" + stringBuffer.toString());
         return stringBuffer.toString();
     }
